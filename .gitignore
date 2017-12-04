@@ -1,0 +1,9 @@
+# Music
+!music/.gitkeep
+music/*
+
+# Ignore all compiled python files
+*.pyc
+
+# IDE
+.idea
