@@ -25,10 +25,11 @@ class Config(object):
             '95': 'B5',
             '96': 'C6',
             '98': 'D6',
-            '100': 'E6'
+            '100': 'E6',
+            '101': 'E6'
         }[str(midi_numerical_note)]
 
-    def channel_for_note(self, note_str):
+    def channels_for_note(self, note_str):
         return {
             'C3': [1],  # C3
             'D3': [2],  # D3

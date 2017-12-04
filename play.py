@@ -1,35 +1,56 @@
 import argparse
 import logging
 import config
+from hardware import Hardware
+import json
 from mido import MidiFile
 import os
 from pathlib2 import Path
-import multiprocessing
+import signal
 from subprocess import Popen
 import time
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--loglevel', default='INFO', help='Log level. Defaults to INFO')
-parser.add_argument('--midi', required=True, help='Path the midi file to read', default='./music/carol_of_the_bells.midi')
-parser.add_argument('--song', required=True, help='Path the music file to read', default='./music/carol_of_the_bells.wav')
-parser.add_argument('--song-delay', help='Seconds to delay start of the song', default=0, type=float)
+parser.add_argument('--midi', required=True, help='Path the midi file to read')
+parser.add_argument('--song', required=True, help='Path the music file to read')
 
 args = parser.parse_args()
 
 logging.basicConfig(
     level=args.loglevel,
-    format='[%(levelname)s] (%(processName)-10s) %(message)s',
+    format='%(asctime)s|%(levelname)s %(message)s',
 )
 
+signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-class MidiPlayer(object):
-    def __init__(self):
-        self.config = config.Config()
+
+class MidiCommand(object):
+    def __init__(self, pre_timeout=0):
+        self.changes = {}
+        self.timeout = pre_timeout
+
+    def set_channel(self, channel_id, pin_value):
+        if channel_id in self.changes.keys():
+            logging.warn("Channel already set for command: {}".format({
+                'channel_id': channel_id,
+                'current_value': self.changes[channel_id],
+                'new_value': pin_value
+            }))
+
+        self.changes[channel_id] = pin_value
+
+
+class MidiLights(object):
+    def __init__(self, configuration, hrdwr):
+        self.config = configuration
         self.start_time = None
+        self.hardware = hrdwr
 
-    def run(self, midi_path, song_path, song_delay):
-        logging.debug("Master process starting")
+    def run(self, midi_path, song_path):
+        logging.info("Reading MIDI: {}".format(midi_path))
+        logging.info("Playing Song: {}".format(song_path))
 
         # Validate input files
         for file_path in [midi_path, song_path]:
@@ -38,89 +59,117 @@ class MidiPlayer(object):
                 logging.error(msg)
                 raise RuntimeError("msg")
 
-        # Open Midi File
-        mid = MidiFile(midi_path)
+        # Get Hardware
+        hardware = Hardware()
 
-        processes = {
-            'midi': multiprocessing.Process(
-                name='MidiLights',
-                target=self.process_midi,
-                args=(mid,)
-            ),
+        # Get script
+        cached_status, script = self.midi_commands(midi_path)
+        hardware.debug_flash(cached_status)
 
-            'song': multiprocessing.Process(
-                name='SongPlayer',
-                target=self.process_song,
-                args=(song_path, song_delay)
-            )
-        }
+        # Code takes time to execute.. record it here to keep the midi command playback in sync with the music
+        time_lost = 0
 
-        # Start processes
-        self.start_time = time.time()
-        [process.start() for process in processes.values()]
+        # Start play song
+        command = self.play_mp3_command(song_path)
+        music_player = Popen(command, shell=True)
 
-        # Catch keyboard interrupt
-        while multiprocessing.active_children():
-            try:
-                time.sleep(0.1)
-            except KeyboardInterrupt:
-                logging.error("Killing processes")
-                [process.terminate() for process in processes.values()]
+        # Playback script
+        for command in script:
+            logging.debug(json.dumps({'command': command.__dict__, 'time_lost': time_lost}))
+            t = time.time()
 
-    def process_midi(self, midi_file):
-        logging.debug("Starting MIDI processing: {}".format(midi_file))
+            # Timeout wait, but catch back up in sync
+            if command.timeout:
+                time_lost_diff = command.timeout - time_lost
 
-        t = 0
-        for msg in midi_file:
-            t += msg.time
-            time.sleep(msg.time)
+                # Sleep or Sync
+                if time_lost_diff < 0:  # Time lost > timeout, don't sleep
+                    time_lost -= command.timeout
+                elif time_lost_diff > 0:  # timeout is greater than time lost, sleep & get in-sync
+                    time_lost = 0
+                    t += time_lost_diff
+                    time.sleep(time_lost_diff)
+                else:  # in-sync if we don't sleep
+                    time_lost = 0
 
-            now = time.time()
+            # Write pin values out
+            for channel, val in command.changes.items():
+                hardware.set_channel_value(channel, val)
 
+            # Update time lost
+            time_lost += time.time() - t
+
+        # Wait for music to complete
+        logging.info("MIDI File complete, waiting for music to finish")
+        music_player.wait()
+
+        # Turn all of the lights on to end the show!
+        logging.info("Merry Christmas!")
+        hardware.set_all_channels_to_value(1)
+
+    def midi_commands(self, midi_path):
+        """
+        Reads a midi file and generates commands before playing music (I was noticing the lights getting out of sync,
+        and computing the list of commands before starting music playback fixed that issue. It was also easy to write
+        the list out to a JSON file for caching on subsequent executions.
+
+        :param midi_path:
+        :return: (cache_found, MidiCommand[])
+        """
+        command = None
+        script = []
+
+        # Check for cache and return
+        cache_path = "{}.script.json".format(midi_path)
+        if Path(cache_path).is_file():
+            for cmd in json.load(open(cache_path)):
+                logging.debug("Loading command from cache: {}".format(cmd))
+                command = MidiCommand(cmd['timeout'])
+                command.changes = cmd['changes']
+                script.append(command)
+            return True, script
+
+        # Parse midi file and generate commands
+        for msg in MidiFile(midi_path):
             if msg.is_meta:
                 logging.debug("Meta midi message: {}".format(msg))
                 continue
-            logging.debug("Message: {}".format(msg))
+
+            if msg.time or not command:
+                logging.debug("Writing command: {}".format(command))
+                command = MidiCommand(msg.time)
+                script.append(command)
 
             note_str = self.config.get_note_str(msg.note)
-            note_enabled = str(msg.type) == str('note_on')
+            note_enabled = 1 if str(msg.type) == str('note_on') else 0
 
-            logging.info({
-                't': t,
-                'time': now - self.start_time,
+            channel_ids = map(lambda i: str(i), self.config.channels_for_note(note_str))
+            logging.debug({
                 'note_str': note_str,
-                'note_enabled': note_enabled
+                'note_enabled': note_enabled,
+                'channel_ids': channel_ids
             })
 
-        logging.debug("Midi processing complete")
+            for ch_id in channel_ids:
+                command.set_channel(ch_id, note_enabled)
+        logging.debug("Script: {}".format(json.dumps([c.__dict__ for c in script])))
 
-    def process_song(self, song_path, song_delay):
-        logging.info("Playing song: {} in {} seconds".format(song_path, song_delay))
-        time.sleep(song_delay)
+        # Write commands to file for caching
+        with open(cache_path, 'w') as cache_file:
+            json.dump([c.__dict__ for c in script], cache_file)
 
-        command = self.play_mp3_command(song_path)
-        logging.info("Music Player detected: {}".format(command))
-
-        t = time.time()
-        music_player = Popen(command, shell=True)
-
-        while not music_player.poll():
-            now = time.time()
-            logging.info({'t': time.time() - t, 'time': now - self.start_time})
-
-            time.sleep(1)
-
-        logging.debug("Song processing complete")
+        return False, script
 
     @staticmethod
     def play_mp3_command(song_path):
+        """
+        Generate the command to playback the music, based on file extension
+        :param song_path: path to music file
+        :return: string command to execute to start playback
+        """
+
         file_name, file_extension = os.path.splitext(song_path)
 
-        """
-        Generate the command based on file extension
-        :param file_extension:
-        :return: string command to execute for Popen
-        """
         player_map = {
             '.wav': 'aplay {}'.format(song_path),
             '.mp3': 'mpg123 {}'.format(song_path)
@@ -133,5 +182,11 @@ class MidiPlayer(object):
 
 
 if __name__ == "__main__":
-    player = MidiPlayer()
-    player.run(args.midi, args.song, args.song_delay)
+    hw = Hardware()
+    try:
+        player = MidiLights(config.Config(), hw)
+        player.run(args.midi, args.song)
+    except Exception as e:
+        logging.error("Exception caught: {}".format(e))
+        hw.set_all_channels_to_value(0)
+        raise e
