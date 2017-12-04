@@ -18,12 +18,11 @@ class Hardware(object):
             self.channels[str(channel_id)] = channel
 
     def debug_flash(self, cached_status):
-        max_range = 3 if cached_status else 2
-        for i in range(0, max_range):
-            self.set_all_channels_to_value(1)
-            sleep(0.1)
-            self.set_all_channels_to_value(0)
-            sleep(0.1 if cached_status else 0.3)
+        self.set_all_channels_to_value(0)
+        sleep(0.1)
+        self.set_all_channels_to_value(1)
+        sleep(0.1 if cached_status else 0.4)
+        self.set_all_channels_to_value(0)
 
     def set_all_channels_to_value(self, value):
         [c.set_pin(value) for c in self.channels.values()]

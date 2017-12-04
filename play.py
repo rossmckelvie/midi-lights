@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--loglevel', default='INFO', help='Log level. Defaults to INFO')
 parser.add_argument('--midi', required=True, help='Path the midi file to read')
 parser.add_argument('--song', required=True, help='Path the music file to read')
+parser.add_argument('--no-cache', action='store_true', default=False, help='Set to disable caching')
 
 args = parser.parse_args()
 
@@ -43,14 +44,16 @@ class MidiCommand(object):
 
 
 class MidiLights(object):
-    def __init__(self, configuration, hrdwr):
+    def __init__(self, configuration, hrdwr, disable_caching=False):
         self.config = configuration
         self.start_time = None
         self.hardware = hrdwr
+        self.caching_disabled = disable_caching
 
     def run(self, midi_path, song_path):
         logging.info("Reading MIDI: {}".format(midi_path))
         logging.info("Playing Song: {}".format(song_path))
+        logging.info("Cache: {}".format("Disabled" if self.caching_disabled else "Enabled"))
 
         # Validate input files
         for file_path in [midi_path, song_path]:
@@ -121,7 +124,7 @@ class MidiLights(object):
 
         # Check for cache and return
         cache_path = "{}.script.json".format(midi_path)
-        if Path(cache_path).is_file():
+        if Path(cache_path).is_file() and not self.caching_disabled:
             for cmd in json.load(open(cache_path)):
                 logging.debug("Loading command from cache: {}".format(cmd))
                 command = MidiCommand(cmd['timeout'])
@@ -184,7 +187,7 @@ class MidiLights(object):
 if __name__ == "__main__":
     hw = Hardware()
     try:
-        player = MidiLights(config.Config(), hw)
+        player = MidiLights(config.Config(), hw, args.no_cache)
         player.run(args.midi, args.song)
     except Exception as e:
         logging.error("Exception caught: {}".format(e))
