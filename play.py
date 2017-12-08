@@ -1,14 +1,14 @@
 import argparse
 import logging
+from command import Command
 import config
-from hardware import Command, Hardware
+from hardware import Hardware
 import json
 from mido import MidiFile
 import os
 from pathlib2 import Path
 import signal
 from subprocess import Popen
-import time
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 
@@ -40,7 +40,7 @@ class MidiLights(object):
         music_player = Popen(mp3_command, shell=True)
 
         # Playback script
-        self.play_script(script)
+        self.hardware.play_script(script)
 
         # Wait for music to complete
         logging.info("MIDI File complete, waiting for music to finish")
@@ -49,42 +49,6 @@ class MidiLights(object):
         # Turn all of the lights on to end the show!
         logging.info("Merry Christmas!")
         self.hardware.set_all_channels_to_value(1)
-
-    def play_script(self, script):
-        """
-        Execute (midi) commands
-        :param script:
-        :type script: Command[]
-        :return: int time_lost
-        """
-        # Code takes time to execute.. record it here to keep the midi command playback in sync with the music
-        time_lost = 0
-
-        for command in script:
-            logging.debug(json.dumps({'command': command.__dict__, 'time_lost': time_lost}))
-            t = time.time()
-
-            # Timeout wait, but catch back up in sync
-            if command.timeout:
-                time_lost_diff = command.timeout - time_lost
-
-                # Sleep or Sync
-                if time_lost_diff < 0:  # Time lost > timeout, don't sleep
-                    time_lost -= command.timeout
-                elif time_lost_diff > 0:  # timeout is greater than time lost, sleep & get in-sync
-                    time_lost = 0
-                    t += time_lost_diff
-                    time.sleep(time_lost_diff)
-                else:  # in-sync if we don't sleep
-                    time_lost = 0
-
-            # Write pin values out
-            self.hardware.execute_command(command)
-
-            # Update time lost
-            time_lost += time.time() - t
-
-        return time_lost
 
     def midi_commands(self, midi_path):
         """
@@ -135,7 +99,7 @@ class MidiLights(object):
 
         # Write commands to file for caching
         with open(cache_path, 'w') as cache_file:
-            json.dump([c.__dict__ for c in script], cache_file)
+            json.dump([cmd.__dict__ for cmd in script], cache_file)
 
         return False, script
 

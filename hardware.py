@@ -1,7 +1,10 @@
 import argparse
-import logging
-import wiringpi
+from command import Command
 from config import Config
+import json
+import logging
+from time import time, sleep
+import wiringpi
 
 
 class Hardware(object):
@@ -38,8 +41,50 @@ class Hardware(object):
         :param command:
         :type command: Command
         """
-        for channel, val in command.changes.items():
-            self.set_channel_value(channel, val)
+        changes = command.changes
+        sleep(command.timeout)
+
+        if len(changes) == 1 and '*' == changes.keys()[0]:
+            self.set_all_channels_to_value(changes.values()[0])
+        else:
+            for channel, val in changes.items():
+                self.set_channel_value(channel, val)
+
+    def play_script(self, script):
+        """
+        Execute commands
+        :param script:
+        :type script: Command[]
+        :return: int time_lost
+        """
+        # Code takes time to execute.. record it here to keep the midi command playback in sync with the music
+        time_lost = 0
+
+        for command in script:
+            logging.debug(json.dumps({'command': command.__dict__, 'time_lost': time_lost}))
+            t = time()
+
+            # Timeout wait, but catch back up in sync
+            if command.timeout:
+                time_lost_diff = command.timeout - time_lost
+
+                # Sleep or Sync
+                if time_lost_diff < 0:  # Time lost > timeout, don't sleep
+                    time_lost -= command.timeout
+                elif time_lost_diff > 0:  # timeout is greater than time lost, sleep & get in-sync
+                    time_lost = 0
+                    t += time_lost_diff
+                    command.timeout = time_lost_diff
+                else:  # in-sync if we don't sleep
+                    time_lost = 0
+
+            # Write pin values out
+            self.execute_command(command)
+
+            # Update time lost
+            time_lost += time() - t
+
+        return time_lost
 
 
 class Channel(object):
@@ -71,27 +116,11 @@ class Channel(object):
         })
 
 
-class Command(object):
-    def __init__(self, pre_timeout=0):
-        self.changes = {}
-        self.timeout = pre_timeout
-
-    def set_channel(self, channel_id, pin_value):
-        if channel_id in self.changes.keys():
-            logging.warn("Channel already set for command: {}".format({
-                'channel_id': channel_id,
-                'current_value': self.changes[channel_id],
-                'new_value': pin_value
-            }))
-
-        self.changes[channel_id] = pin_value
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    hw = Hardware()
+    hw = Hardware(Config())
 
-    parser.add_argument('--status', help='Set the status of all lights. One of [on, off]')
+    parser.add_argument('--status', help='Set the status of all lights. One of [on, off]', required=True)
 
     args = parser.parse_args()
     if args.status:
