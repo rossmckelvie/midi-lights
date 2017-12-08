@@ -1,7 +1,7 @@
 import argparse
 import logging
 import config
-from hardware import Hardware
+from hardware import Command, Hardware
 import json
 from mido import MidiFile
 import os
@@ -10,37 +10,12 @@ import signal
 from subprocess import Popen
 import time
 
-parser = argparse.ArgumentParser()
-
-parser.add_argument('--loglevel', default='INFO', help='Log level. Defaults to INFO')
-parser.add_argument('--midi', required=True, help='Path the midi file to read')
-parser.add_argument('--song', required=True, help='Path the music file to read')
-parser.add_argument('--no-cache', action='store_true', default=False, help='Set to disable caching')
-
-args = parser.parse_args()
-
 logging.basicConfig(
     level=args.loglevel,
     format='%(asctime)s|%(levelname)s %(message)s',
 )
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-
-class MidiCommand(object):
-    def __init__(self, pre_timeout=0):
-        self.changes = {}
-        self.timeout = pre_timeout
-
-    def set_channel(self, channel_id, pin_value):
-        if channel_id in self.changes.keys():
-            logging.warn("Channel already set for command: {}".format({
-                'channel_id': channel_id,
-                'current_value': self.changes[channel_id],
-                'new_value': pin_value
-            }))
-
-        self.changes[channel_id] = pin_value
 
 
 class MidiLights(object):
@@ -62,21 +37,34 @@ class MidiLights(object):
                 logging.error(msg)
                 raise RuntimeError("msg")
 
-        # Get Hardware
-        hardware = Hardware()
-
         # Get script
         cached_status, script = self.midi_commands(midi_path)
-        hardware.debug_flash(cached_status)
 
+        # Start play song
+        mp3_command = self.play_mp3_command(song_path)
+        music_player = Popen(mp3_command, shell=True)
+
+        # Playback script
+        self.play_script(script)
+
+        # Wait for music to complete
+        logging.info("MIDI File complete, waiting for music to finish")
+        music_player.wait()
+
+        # Turn all of the lights on to end the show!
+        logging.info("Merry Christmas!")
+        self.hardware.set_all_channels_to_value(1)
+
+    def play_script(self, script):
+        """
+        Execute (midi) commands
+        :param script:
+        :type script: Command[]
+        :return: int time_lost
+        """
         # Code takes time to execute.. record it here to keep the midi command playback in sync with the music
         time_lost = 0
 
-        # Start play song
-        command = self.play_mp3_command(song_path)
-        music_player = Popen(command, shell=True)
-
-        # Playback script
         for command in script:
             logging.debug(json.dumps({'command': command.__dict__, 'time_lost': time_lost}))
             t = time.time()
@@ -96,19 +84,12 @@ class MidiLights(object):
                     time_lost = 0
 
             # Write pin values out
-            for channel, val in command.changes.items():
-                hardware.set_channel_value(channel, val)
+            self.hardware.execute_command(command)
 
             # Update time lost
             time_lost += time.time() - t
 
-        # Wait for music to complete
-        logging.info("MIDI File complete, waiting for music to finish")
-        music_player.wait()
-
-        # Turn all of the lights on to end the show!
-        logging.info("Merry Christmas!")
-        hardware.set_all_channels_to_value(1)
+        return time_lost
 
     def midi_commands(self, midi_path):
         """
@@ -117,7 +98,7 @@ class MidiLights(object):
         the list out to a JSON file for caching on subsequent executions.
 
         :param midi_path:
-        :return: (cache_found, MidiCommand[])
+        :return: (cache_found, Command[])
         """
         command = None
         script = []
@@ -127,7 +108,7 @@ class MidiLights(object):
         if Path(cache_path).is_file() and not self.caching_disabled:
             for cmd in json.load(open(cache_path)):
                 logging.debug("Loading command from cache: {}".format(cmd))
-                command = MidiCommand(cmd['timeout'])
+                command = Command(cmd['timeout'])
                 command.changes = cmd['changes']
                 script.append(command)
             return True, script
@@ -140,7 +121,7 @@ class MidiLights(object):
 
             if msg.time or not command:
                 logging.debug("Writing command: {}".format(command))
-                command = MidiCommand(msg.time)
+                command = Command(msg.time)
                 script.append(command)
 
             note_str = self.config.get_note_str(msg.note)
@@ -186,6 +167,16 @@ class MidiLights(object):
 
 if __name__ == "__main__":
     hw = Hardware()
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--loglevel', default='INFO', help='Log level. Defaults to INFO')
+    parser.add_argument('--midi', required=True, help='Path the midi file to read')
+    parser.add_argument('--song', required=True, help='Path the music file to read')
+    parser.add_argument('--no-cache', action='store_true', default=False, help='Set to disable caching')
+
+    args = parser.parse_args()
+
     try:
         player = MidiLights(config.Config(), hw, args.no_cache)
         player.run(args.midi, args.song)
