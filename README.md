@@ -8,7 +8,9 @@ A MIDI file contains a list of messages, each with a note, note status (`on` or 
 
 If you don't like MIDI, the cached command list from a midi file is stored as JSON. In the future, this JSON file could be provided as input instead of the midi file, powering the show with pure JSON.
 
-## Usage
+## Usage  
+Create a `config.json` file, a sample is provided. Modify to fit your setup.
+
 #### Play a choreographed song
 `python play.py --midi ./music/YOUR_SONG.midi --song ./music/YOUR_SONG.wav`  
 MIDI Note-to-Channel mappings are defined in config.py

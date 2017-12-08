@@ -10,11 +10,6 @@ import signal
 from subprocess import Popen
 import time
 
-logging.basicConfig(
-    level=args.loglevel,
-    format='%(asctime)s|%(levelname)s %(message)s',
-)
-
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
@@ -176,6 +171,11 @@ if __name__ == "__main__":
     parser.add_argument('--no-cache', action='store_true', default=False, help='Set to disable caching')
 
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=args.loglevel,
+        format='%(asctime)s|%(levelname)s %(message)s',
+    )
 
     try:
         player = MidiLights(config.Config(), hw, args.no_cache)
