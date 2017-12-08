@@ -161,7 +161,8 @@ class MidiLights(object):
 
 
 if __name__ == "__main__":
-    hw = Hardware()
+    c = config.Config()
+    hw = Hardware(c)
 
     parser = argparse.ArgumentParser()
 
@@ -178,7 +179,7 @@ if __name__ == "__main__":
     )
 
     try:
-        player = MidiLights(config.Config(), hw, args.no_cache)
+        player = MidiLights(c, hw, args.no_cache)
         player.run(args.midi, args.song)
     except Exception as e:
         logging.error("Exception caught: {}".format(e))

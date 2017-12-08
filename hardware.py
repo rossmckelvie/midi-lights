@@ -1,20 +1,22 @@
 import argparse
 import logging
 import wiringpi
+from config import Config
 
 
 class Hardware(object):
-    def __init__(self, gpio_pins=range(0, 8), active_low_mode=False):
+    def __init__(self, config):
+        """
+        :param config:
+        :type config: Config
+        """
         self.channels = {}
         wiringpi.wiringPiSetup()
 
         # Setup Channels
-        channel_id = 0
-        for pin in gpio_pins:
-            channel_id += 1
-
-            channel = Channel(channel_id, pin, active_low_mode)
-            self.channels[str(channel_id)] = channel
+        for _id, channel_settings in config.settings['channels'].items():
+            channel = Channel(_id, channel_settings['pin'], channel_settings['active_low'])
+            self.channels[_id] = channel
 
     def set_all_channels_to_value(self, value):
         [c.set_pin_state(value) for c in self.channels.values()]
