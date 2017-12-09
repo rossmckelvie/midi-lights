@@ -26,7 +26,7 @@
     }
   },
   "music": {
-    "carol_of_the_bells": {
+    "carol": {
       "song": "carol_of_the_bells.wav",
       "midi": "c2.midi",
       "commands": "c2.{node}.commands.json",
@@ -55,24 +55,24 @@
         "C6": ["up-left-window"],
         "D6": ["up-center-window"],
         "E6": ["up-right-window"]
-      }
+      },
     },
-    "wizards_in_winter": {
+    "wizards": {
       "song": "wizards.wav",
       "midi": "wizards.midi",
       "commands": "wizards.{node}.commands.json",
       "note_channel_map": {
-        "E2": ["box","left-tree","up-left-window","up-center-window","up-right-window"],
+        "E2": ["box", "left-tree", "up-left-window", "up-center-window", "up-right-window"],
         "F2": ["box"],
         "G2": ["box"],
-        "A2": ["left-tree","right-tree"],
-        "B2": ["right-window","icicles", "left-window","garage"],
-        "C3": ["up-left-window","up-center-window","up-right-window"],
+        "A2": ["left-tree", "right-tree"],
+        "B2": ["right-window", "icicles", "left-window", "garage"],
+        "C3": ["up-left-window", "up-center-window", "up-right-window"],
         "D3": ["front-door"],
-        "G#1": ["laser","front-door"],
-        "F1": ["up-left-window","up-center-window","up-right-window","right-window","icicles", "left-window","front-door"],
-        "F#1": ["up-left-window","up-center-window","up-right-window","right-window","icicles", "left-window","front-door"],
-        "G#0": ["left-tree","right-tree","front-door","up-left-window","up-right-window"]
+        "G#1": ["laser", "front-door"],
+        "F1": ["up-left-window", "up-center-window", "up-right-window", "right-window", "icicles", "left-window", "front-door"],
+        "F#1": ["up-left-window", "up-center-window", "up-right-window", "right-window","icicles", "left-window", "front-door"],
+        "G#0": ["left-tree", "right-tree", "front-door", "up-left-window", "up-right-window"]
       }
     }
   }

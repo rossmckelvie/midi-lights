@@ -5,8 +5,7 @@ import json
 import logging
 from mido import MidiFile
 import os
-from pathlib2 import Path
-from audiolazy.lazy_midi import midi2str
+
 
 class Choreographer(object):
 

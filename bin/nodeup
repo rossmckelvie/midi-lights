@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+python $(dirname $0)/../src/hardware_server.py --node=$1

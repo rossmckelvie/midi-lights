@@ -1,10 +1,8 @@
 import argparse
 import logging
-from command import Command
 import config
 from hardware import Hardware
 import json
-from mido import MidiFile
 import os
 from pathlib2 import Path
 import requests

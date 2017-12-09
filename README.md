@@ -6,20 +6,25 @@ MIDI files can be used to choreograph Christmas lights to music! midi-lights run
 
 A MIDI file contains a list of messages, each with a note, note status (`on` or `off`), and a time to wait before changing the status. A mapping of notes to lights allows the entire show to be choreographed with a keyboard.
 
-If you don't like MIDI, the cached command list from a midi file is stored as JSON. This file is what is sent to the remotes
+If you don't like MIDI, the cached command list from a midi file is stored as JSON. This file is what is sent to the remotes, and the midi file is not required for playing (only for running choreograph.py)
+
 ## Usage  
-Create a `config.json` file, a sample is provided. Modify to fit your setup.
+Create a `config.json` file, a sample is provided. Modify to fit your setup. Install packages from `src/requirements.txt`
 
 #### Choreograph a song
-`python choreograph.py --song=wizards`
+`./bin/choreograph wizards` or `python src/choreograph.py --song=wizards`  
+
+This generates the JSON command files
 
 #### Launch a node & wait for instructions
-`python hardware_server.py --node=upstairs`  
+`./bin/nodeup upstairs` or `python src/hardware_server.py --node=upstairs`  
+
 Note: you will have to launch a master node server. The play process below will make a request to localhost to kick off the song
 
 #### Play a choreographed song
-`python play.py --song=wizards`  
+`./bin.play wizards` or `python src/play.py --song=wizards`  
+
 MIDI Note-to-Channel mappings are defined in config.json
 
 #### Turn all lights on or off
-`python hardware.py --toggle on`
+`./bin/hardware on` or `python src/hardware.py --toggle off`  
