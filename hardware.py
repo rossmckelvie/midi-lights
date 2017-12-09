@@ -128,7 +128,7 @@ if __name__ == "__main__":
     c = Config()
     hw = Hardware(c)
 
-    parser.add_argument('--node', help='Node to load configuration for', required=True, choices=c.settings['nodes'].keys())
+    parser.add_argument('--node', help='Node to load configuration for', default='master', choices=c.settings['nodes'].keys())
     parser.add_argument('--toggle', help='Set the status of all lights. One of [on, off]', required=True)
 
     args = parser.parse_args()

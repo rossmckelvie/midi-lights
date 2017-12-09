@@ -40,14 +40,15 @@ class HardwareServer(Resource):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    hw = Hardware(Config())
+    c = Config()
 
-    parser.add_argument('--port', help='Server port, default 4444', default=4444, type=int)
+    parser.add_argument('--node', help='Node id', default='master', choices=c.settings['nodes'].keys())
 
     args = parser.parse_args()
+    hw = Hardware(c, args.node)
 
     root = Resource()
     root.putChild("cmd", HardwareServer(hw))
-    endpoint = endpoints.serverFromString(reactor, "tcp:{}".format(args.port))
+    endpoint = endpoints.serverFromString(reactor, "tcp:{}".format(c.settings['nodes'][args.node]['port']))
     endpoint.listen(Site(root))
     reactor.run()
