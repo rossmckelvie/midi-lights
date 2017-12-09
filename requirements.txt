@@ -2,3 +2,5 @@ mido
 pathlib2
 wiringpi
 twisted[tls]
+audiolazy
+requests

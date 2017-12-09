@@ -7,8 +7,12 @@ from time import time, sleep
 import wiringpi
 
 
+class InvalidNodeException(Exception):
+    pass
+
+
 class Hardware(object):
-    def __init__(self, config):
+    def __init__(self, config, node='master'):
         """
         :param config:
         :type config: Config
@@ -16,8 +20,11 @@ class Hardware(object):
         self.channels = {}
         wiringpi.wiringPiSetup()
 
+        if node not in config.settings['nodes'].keys():
+            raise InvalidNodeException("Node not found: {}".format(node))
+
         # Setup Channels
-        for _id, channel_settings in config.settings['channels'].items():
+        for _id, channel_settings in config.settings['nodes'][node]['channels'].items():
             channel = Channel(_id, channel_settings['pin'], channel_settings['active_low'])
             self.channels[_id] = channel
 
@@ -118,10 +125,12 @@ class Channel(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    hw = Hardware(Config())
+    c = Config()
+    hw = Hardware(c)
 
-    parser.add_argument('--status', help='Set the status of all lights. One of [on, off]', required=True)
+    parser.add_argument('--node', help='Node to load configuration for', required=True, choices=c.settings['nodes'].keys())
+    parser.add_argument('--toggle', help='Set the status of all lights. One of [on, off]', required=True)
 
     args = parser.parse_args()
-    if args.status:
-        hw.set_all_channels_to_value(1 if args.status.lower() == 'on' else 0)
+    if args.toggle:
+        hw.set_all_channels_to_value(1 if args.toggle.lower() == 'on' else 0)

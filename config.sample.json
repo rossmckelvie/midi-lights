@@ -1,65 +1,79 @@
 {
-  "channels": {
-    "garage": {"pin": 0, "active_low": false},
-    "icicles": {"pin": 1, "active_low": false},
-    "left-window": {"pin": 2, "active_low": false},
-    "right-window": {"pin": 3, "active_low": false},
-    "right-tree": {"pin": 4, "active_low": false},
-    "left-tree": {"pin": 5, "active_low": false},
-    "laser": {"pin": 6, "active_low": false},
-    "front-door": {"pin": 7, "active_low": false}
+  "nodes": {
+    "master": {
+      "host": "localhost",
+      "port": 4444,
+      "channels": {
+        "garage": {"pin": 0, "active_low": false},
+        "icicles": {"pin": 1, "active_low": false},
+        "left-window": {"pin": 2, "active_low": false},
+        "right-window": {"pin": 3, "active_low": false},
+        "right-tree": {"pin": 4, "active_low": false},
+        "left-tree": {"pin": 5, "active_low": false},
+        "laser": {"pin": 6, "active_low": false},
+        "front-door": {"pin": 7, "active_low": false}
+      }
+    },
+    "upstairs": {
+      "host": "midicontroller",
+      "port": 4444,
+      "channels": {
+        "up-left-window": {"pin": 0, "active_low": false},
+        "up-center-window": {"pin": 1, "active_low": false},
+        "up-right-window": {"pin": 2, "active_low": false},
+        "box": {"pin": 8, "active_low": true}
+      }
+    }
   },
-  "midi_notes": {
-    "60": "C3",
-    "62": "D3",
-    "64": "E3",
-    "65": "F3",
-    "67": "G3",
-    "69": "A3",
-    "71": "B3",
-    "72": "C4",
-    "74": "D4",
-    "76": "E4",
-    "77": "F4",
-    "79": "G4",
-    "81": "A4",
-    "83": "B4",
-    "84": "C5",
-    "86": "D5",
-    "88": "E5",
-    "89": "F5",
-    "91": "G5",
-    "93": "A5",
-    "95": "B5",
-    "96": "C6",
-    "98": "D6",
-    "100": "E6",
-    "101": "E6"
-  },
-  "note_channel_map": {
-    "C3": ["garage"],
-    "D3": ["icicles"],
-    "E3": ["left-window"],
-    "F3": ["right-window"],
-    "G3": ["right-tree"],
-    "A3": ["left-tree"],
-    "B3": ["laser"],
-    "C4": ["front-door"],
-    "D4": ["garage", "icicles"],
-    "E4": ["left-window", "right-window"],
-    "F4": ["right-tree", "left-tree"],
-    "G4": ["laser", "front-door"],
-    "A4": ["garage", "left-window"],
-    "B4": ["icicles", "right-window"],
-    "C5": ["right-tree", "laser"],
-    "D5": ["front-door", "left-tree"],
-    "E5": ["front-door"],
-    "F5": ["laser"],
-    "G5": ["left-tree"],
-    "A5": ["right-tree"],
-    "B5": ["right-window"],
-    "C6": ["left-window"],
-    "D6": ["icicles"],
-    "E6": ["garage"]
+  "music": {
+    "carol_of_the_bells": {
+      "song": "carol_of_the_bells.wav",
+      "midi": "c2.midi",
+      "commands": "c2.{node}.commands.json",
+      "note_channel_map": {
+        "C3": ["garage"],
+        "D3": ["icicles"],
+        "E3": ["left-window"],
+        "F3": ["right-window"],
+        "G3": ["right-tree"],
+        "A3": ["left-tree"],
+        "B3": ["laser"],
+        "C4": ["front-door"],
+        "D4": ["garage", "icicles"],
+        "E4": ["left-window", "right-window"],
+        "F4": ["right-tree", "left-tree"],
+        "G4": ["laser", "front-door"],
+        "A4": ["garage", "left-window"],
+        "B4": ["icicles", "right-window"],
+        "C5": ["right-tree", "laser"],
+        "D5": ["front-door", "left-tree"],
+        "E5": ["front-door"],
+        "F5": ["laser"],
+        "G5": ["left-tree"],
+        "A5": ["right-tree"],
+        "B5": ["right-window"],
+        "C6": ["up-left-window"],
+        "D6": ["up-center-window"],
+        "E6": ["up-right-window"]
+      }
+    },
+    "wizards_in_winter": {
+      "song": "wizards.wav",
+      "midi": "wizards.midi",
+      "commands": "wizards.{node}.commands.json",
+      "note_channel_map": {
+        "E2": ["box","left-tree","up-left-window","up-center-window","up-right-window"],
+        "F2": ["box"],
+        "G2": ["box"],
+        "A2": ["left-tree","right-tree"],
+        "B2": ["right-window","icicles", "left-window","garage"],
+        "C3": ["up-left-window","up-center-window","up-right-window"],
+        "D3": ["front-door"],
+        "G#1": ["laser","front-door"],
+        "F1": ["up-left-window","up-center-window","up-right-window","right-window","icicles", "left-window","front-door"],
+        "F#1": ["up-left-window","up-center-window","up-right-window","right-window","icicles", "left-window","front-door"],
+        "G#0": ["left-tree","right-tree","front-door","up-left-window","up-right-window"]
+      }
+    }
   }
 }

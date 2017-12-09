@@ -7,40 +7,61 @@ import json
 from mido import MidiFile
 import os
 from pathlib2 import Path
+import requests
 import signal
 from subprocess import Popen
+import threading
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 class MidiLights(object):
-    def __init__(self, configuration, hrdwr, disable_caching=False):
+    def __init__(self, configuration, hardware, disable_caching=False):
         self.config = configuration
         self.start_time = None
-        self.hardware = hrdwr
+        self.hardware = hardware
         self.caching_disabled = disable_caching
 
-    def run(self, midi_path, song_path):
-        logging.info("Reading MIDI: {}".format(midi_path))
-        logging.info("Playing Song: {}".format(song_path))
+    def run(self, song):
+        song_config = self.config.settings['music'][song]
+
+        logging.info("Reading MIDI: {}".format(song_config['midi']))
+        logging.info("Playing Song: {}".format(song_config['song']))
         logging.info("Cache: {}".format("Disabled" if self.caching_disabled else "Enabled"))
 
-        # Validate input files
-        for file_path in [midi_path, song_path]:
-            if not Path(file_path).is_file():
-                msg = "%s is not a file.". format(file_path)
-                logging.error(msg)
-                raise RuntimeError("msg")
+        # Required Files
+        song_path = "music/{}".format(song_config['song'])
+        required_files = [song_path]
+        for node in self.config.settings['nodes'].keys():
+            required_files.append("music/{}".format(song_config['commands'].format(node=node)))
 
-        # Get script
-        cached_status, script = self.midi_commands(midi_path)
+        # Validate input files
+        for file_path in required_files:
+            if not Path(file_path).is_file():
+                msg = "{} is not a file.".format(file_path)
+                logging.error(msg)
+                raise RuntimeError(msg)
+
+        # Load commands onto remotes & prepare to play
+        self.prepare_remotes(song_config)
+        threads = []
+        for node_name in self.config.settings['nodes'].keys():
+            t = threading.Thread(
+                name="Play:{}".format(node_name),
+                target=self.play_remote,
+                args=(node_name,)
+            )
+            threads.append(t)
+
+        # Play lights
+        [t.start() for t in threads]
 
         # Start play song
         mp3_command = self.play_mp3_command(song_path)
         music_player = Popen(mp3_command, shell=True)
 
-        # Playback script
-        self.hardware.play_script(script)
+        # Wait for lights to complete
+        [t.join() for t in threads]
 
         # Wait for music to complete
         logging.info("MIDI File complete, waiting for music to finish")
@@ -50,58 +71,23 @@ class MidiLights(object):
         logging.info("Merry Christmas!")
         self.hardware.set_all_channels_to_value(1)
 
-    def midi_commands(self, midi_path):
-        """
-        Reads a midi file and generates commands before playing music (I was noticing the lights getting out of sync,
-        and computing the list of commands before starting music playback fixed that issue. It was also easy to write
-        the list out to a JSON file for caching on subsequent executions.
+    def play_remote(self, node_name):
+        node = self.config.settings['nodes'][node_name]
+        url = "http://{}:{}/cmd".format(node['host'], node['port'])
 
-        :param midi_path:
-        :return: (cache_found, Command[])
-        """
-        command = None
-        script = []
+        r = requests.post(url)
+        logging.debug("Node finished: {}".format(node_name))
+        return r.text
 
-        # Check for cache and return
-        cache_path = "{}.script.json".format(midi_path)
-        if Path(cache_path).is_file() and not self.caching_disabled:
-            for cmd in json.load(open(cache_path)):
-                logging.debug("Loading command from cache: {}".format(cmd))
-                command = Command(cmd['timeout'])
-                command.changes = cmd['changes']
-                script.append(command)
-            return True, script
+    def prepare_remotes(self, song_config):
+        for node_name, node in self.config.settings['nodes'].items():
+            commands = json.load(open("music/{}".format(song_config['commands'].format(node=node_name))))
+            logging.info("Sending {} commands".format(len(commands)))
+            url = "http://{}:{}/cmd".format(node['host'], node['port'])
+            payload = {'commands': commands}
 
-        # Parse midi file and generate commands
-        for msg in MidiFile(midi_path):
-            if msg.is_meta:
-                logging.debug("Meta midi message: {}".format(msg))
-                continue
-
-            if msg.time or not command:
-                logging.debug("Writing command: {}".format(command))
-                command = Command(msg.time)
-                script.append(command)
-
-            note_str = self.config.get_note_str(msg.note)
-            note_enabled = 1 if str(msg.type) == str('note_on') else 0
-
-            channel_ids = map(lambda i: str(i), self.config.channels_for_note(note_str))
-            logging.debug({
-                'note_str': note_str,
-                'note_enabled': note_enabled,
-                'channel_ids': channel_ids
-            })
-
-            for ch_id in channel_ids:
-                command.set_channel(ch_id, note_enabled)
-        logging.debug("Script: {}".format(json.dumps([c.__dict__ for c in script])))
-
-        # Write commands to file for caching
-        with open(cache_path, 'w') as cache_file:
-            json.dump([cmd.__dict__ for cmd in script], cache_file)
-
-        return False, script
+            r = requests.put(url, data=json.dumps(payload))
+            logging.debug("Prepared Remote {}: {}".format(node_name, r.text))
 
     @staticmethod
     def play_mp3_command(song_path):
@@ -110,7 +96,6 @@ class MidiLights(object):
         :param song_path: path to music file
         :return: string command to execute to start playback
         """
-
         file_name, file_extension = os.path.splitext(song_path)
 
         player_map = {
@@ -131,8 +116,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--loglevel', default='INFO', help='Log level. Defaults to INFO')
-    parser.add_argument('--midi', required=True, help='Path the midi file to read')
-    parser.add_argument('--song', required=True, help='Path the music file to read')
+    parser.add_argument('--song', required=True, help='Song to play', choices=c.settings['music'].keys())
     parser.add_argument('--no-cache', action='store_true', default=False, help='Set to disable caching')
 
     args = parser.parse_args()
@@ -142,10 +126,10 @@ if __name__ == "__main__":
         format='%(asctime)s|%(levelname)s %(message)s',
     )
 
-    try:
-        player = MidiLights(c, hw, args.no_cache)
-        player.run(args.midi, args.song)
-    except Exception as e:
-        logging.error("Exception caught: {}".format(e))
-        hw.set_all_channels_to_value(0)
-        raise e
+    # try:
+    player = MidiLights(c, hw, args.no_cache)
+    player.run(args.song)
+    # except Exception as e:
+    #     logging.error("Exception caught: {}".format(e))
+    #     hw.set_all_channels_to_value(0)
+    #     raise e

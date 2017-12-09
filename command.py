@@ -2,9 +2,9 @@ import logging
 
 
 class Command(object):
-    def __init__(self, pre_timeout=0, changes={}):
+    def __init__(self, pre_timeout=0, changes=None):
         self.timeout = pre_timeout
-        self.changes = changes
+        self.changes = {} if changes is None else changes
 
     def set_channel(self, channel_id, pin_value):
         if channel_id in self.changes.keys():
@@ -15,3 +15,6 @@ class Command(object):
             }))
 
         self.changes[channel_id] = pin_value
+
+    def increase_timeout(self, t):
+        self.timeout += t
