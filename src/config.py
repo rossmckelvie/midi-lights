@@ -1,5 +1,4 @@
 import json
-import logging
 from os import path
 
 
@@ -8,7 +7,6 @@ class Config(object):
         basepath = path.dirname(__file__)
         filepath = path.abspath(path.join(basepath, "..", "config.json"))
 
-        logging.error("Filepath: {}".format(filepath))
         with open(filepath, 'r') as f:
             self.settings = json.load(f)
 

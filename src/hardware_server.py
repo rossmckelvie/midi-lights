@@ -1,54 +1,52 @@
 import argparse
+from bottle import request, response, route, run
+import bottle
 from command import Command
 from config import Config
 from hardware import Hardware
 import json
+import logging
 from time import time
-from twisted.internet import reactor, endpoints
-from twisted.logger import Logger
-from twisted.web.server import Site
-from twisted.web.resource import Resource
+
+parser = argparse.ArgumentParser()
+c = Config()
+
+parser.add_argument('--node', help='Node id', default='master', choices=c.settings['nodes'].keys())
+parser.add_argument('--loglevel', help='Log level for server & playback', default='INFO')
+args = parser.parse_args()
+
+logging.getLogger().setLevel(args.loglevel)
+hw = Hardware(c, args.node)
+
+script = []
 
 
-class HardwareServer(Resource):
-    log = Logger()
+@route('/cmd', method='POST')
+def start_show():
+    global script
+    logging.info("Starting!")
+    t = time()
 
-    def __init__(self, hardware):
-        self.hardware = hardware
-        self.script = None
-        self.show_instance = None
+    hw.play_script(script)
 
-    def render_POST(self, request):
-        t = time()
-
-        self.hardware.play_script(self.script)
-        return json.dumps({'total_runtime': time() - t})
-
-    def render_PUT(self, request):
-        content = request.content.read()
-        body = json.loads(content)
-
-        script = map(lambda r: Command(r['timeout'], r['changes']), body['commands'])
-        self.script = script
-
-        response = json.dumps({'commands': len(self.script), 'total_runtime': sum(c.timeout for c in script)})
-        self.log.info("Loaded commands: {}".format(response))
-
-        request.setHeader(b"Content-Type", b"application/json")
-        return response
+    response.content_type = "application/json"
+    return json.dumps({'total_runtime': time() - t})
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    c = Config()
+@route('/cmd', method='PUT')
+def receive_commands():
+    global script
+    body = request.json
 
-    parser.add_argument('--node', help='Node id', default='master', choices=c.settings['nodes'].keys())
+    script = map(lambda r: Command(r['timeout'], r['changes']), body['commands'])
 
-    args = parser.parse_args()
-    hw = Hardware(c, args.node)
+    response_body = {'commands': len(script), 'total_runtime': sum(cm.timeout for cm in script)}
+    logging.info("Loaded commands: {}".format(response_body))
 
-    root = Resource()
-    root.putChild("cmd", HardwareServer(hw))
-    endpoint = endpoints.serverFromString(reactor, "tcp:{}".format(c.settings['nodes'][args.node]['port']))
-    endpoint.listen(Site(root))
-    reactor.run()
+    response.content_type = "application/json"
+    return json.dumps(response_body)
+
+
+bottle.BaseRequest.MEMFILE_MAX = 1024 * 1024
+run(host='0.0.0.0', port=c.settings['nodes'][args.node]['port'])
+

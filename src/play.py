@@ -124,10 +124,10 @@ if __name__ == "__main__":
         format='%(asctime)s|%(levelname)s %(message)s',
     )
 
-    # try:
-    player = MidiLights(c, hw, args.no_cache)
-    player.run(args.song)
-    # except Exception as e:
-    #     logging.error("Exception caught: {}".format(e))
-    #     hw.set_all_channels_to_value(0)
-    #     raise e
+    try:
+        player = MidiLights(c, hw, args.no_cache)
+        player.run(args.song)
+    except Exception as e:
+        logging.error("Exception caught: {}".format(e))
+        hw.set_all_channels_to_value(0)
+        raise e
