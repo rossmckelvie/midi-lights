@@ -82,9 +82,8 @@ class MidiLights(object):
             commands = json.load(open("music/{}".format(song_config['commands'].format(node=node_name))))
             logging.info("Sending {} commands".format(len(commands)))
             url = "http://{}:{}/cmd".format(node['host'], node['port'])
-            payload = {'commands': commands}
 
-            r = requests.put(url, data=json.dumps(payload))
+            r = requests.put(url, json={'commands': commands})
             logging.debug("Prepared Remote {}: {}".format(node_name, r.text))
 
     @staticmethod

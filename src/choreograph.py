@@ -103,7 +103,8 @@ class Choreographer(object):
                     node['cmd'] = None
 
                 # Write to file
-                json.dump([cmd.__dict__ for cmd in node['commands']], cache_file)
+                json.dump([cmd.__dict__ for cmd in node['commands']], cache_file,
+                          indent=2, separators=(',', ': '), sort_keys=True)
 
     @staticmethod
     def midi_to_note(midi_number):

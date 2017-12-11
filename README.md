@@ -22,7 +22,7 @@ This generates the JSON command files
 Note: you will have to launch a master node server. The play process below will make a request to localhost to kick off the song
 
 #### Play a choreographed song
-`./bin.play wizards` or `python src/play.py --song=wizards`  
+`./bin/play wizards` or `python src/play.py --song=wizards`  
 
 MIDI Note-to-Channel mappings are defined in config.json
 
